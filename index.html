@@ -4,26 +4,56 @@
     <title>Micro:bit USB 시리얼 온도 읽기</title>
 </head>
 <body>
-    <button id="connectBtn">마이크로비트 연결</button>
-    <pre id="output">온도 데이터 대기 중...</pre>
+<button id="connectBtn">마이크로비트 연결</button>
+<button id="disconnectBtn" disabled>연결 끊기</button>
+<pre id="output">온도 데이터 대기 중...</pre>
 
 <script>
-async function connect() {
-    const port = await navigator.serial.requestPort();
-    await port.open({ baudRate: 115200 });
+    let port;
+    let reader;
 
-    const textDecoder = new TextDecoderStream();
-    port.readable.pipeTo(textDecoder.writable);
-    const reader = textDecoder.readable.getReader();
+    const connectBtn = document.getElementById('connectBtn');
+    const disconnectBtn = document.getElementById('disconnectBtn');
+    const output = document.getElementById('output');
 
-    while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        console.log('Received:', value);
-        document.getElementById('output').textContent += value;
+    async function connect() {
+        try {
+            port = await navigator.serial.requestPort();
+            await port.open({ baudRate: 115200 });
+
+            output.textContent = "연결됨. 데이터 수신 대기 중...\n";
+            connectBtn.disabled = true;
+            disconnectBtn.disabled = false;
+
+            const textDecoder = new TextDecoderStream();
+            port.readable.pipeTo(textDecoder.writable);
+            reader = textDecoder.readable.getReader();
+
+            while (true) {
+                const { value, done } = await reader.read();
+                if (done) break;
+                output.textContent += value;
+            }
+        } catch (error) {
+            output.textContent += `오류: ${error}\n`;
+        }
     }
-}
-document.getElementById('connectBtn').addEventListener('click', connect);
+
+    async function disconnect() {
+        if (reader) {
+            await reader.cancel();
+            reader.releaseLock();
+        }
+        if (port) {
+            await port.close();
+        }
+        output.textContent += "\n연결이 종료되었습니다.\n";
+        connectBtn.disabled = false;
+        disconnectBtn.disabled = true;
+    }
+
+    connectBtn.addEventListener('click', connect);
+    disconnectBtn.addEventListener('click', disconnect);
 </script>
 </body>
 </html>
