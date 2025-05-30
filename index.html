@@ -1,73 +1,41 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="utf-8">
-  <title>micro:bit Bluetooth Viewer</title>
-  <style>
-    body {
-      font-family: sans-serif;
-      background: #f0f0f0;
-      text-align: center;
-      padding: 2rem;
-    }
-    #output {
-      font-size: 2rem;
-      color: #333;
-      margin-top: 1rem;
-      padding: 1rem;
-      background: #fff;
-      border-radius: 10px;
-      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-      min-height: 2em;
-    }
-    button {
-      padding: 1rem 2rem;
-      font-size: 1.2rem;
-      border: none;
-      border-radius: 8px;
-      background-color: #0078d4;
-      color: white;
-      cursor: pointer;
-    }
-    button:hover {
-      background-color: #005fa3;
-    }
-  </style>
+    <title>Micro:bit 온도 수신</title>
 </head>
 <body>
-  <h1>micro:bit Bluetooth 센서값 뷰어</h1>
-  <button onclick="connect()">micro:bit 연결</button>
-  <div id="output">센서값이 여기에 표시됩니다.</div>
+    <button onclick="connect()">연결</button>
+    <p id="output">온도: --</p>
 
-  <script>
-    let bluetoothDevice;
-    let uartCharacteristic;
+    <script>
+        let bluetoothDevice;
+        let uartServiceUUID = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
+        let uartRXCharUUID = '6e400003-b5a3-f393-e0a9-e50e24dcca9e'; // RX (Notify)
 
-    async function connect() {
-      try {
-        bluetoothDevice = await navigator.bluetooth.requestDevice({
-          filters: [{ namePrefix: 'BBC micro:bit' }],
-          optionalServices: ['6e400001-b5a3-f393-e0a9-e50e24dcca9e']
-        });
+        async function connect() {
+            try {
+                bluetoothDevice = await navigator.bluetooth.requestDevice({
+                    filters: [{ namePrefix: 'BBC micro:bit' }],
+                    optionalServices: [uartServiceUUID]
+                });
 
-        const server = await bluetoothDevice.gatt.connect();
-        const service = await server.getPrimaryService('6e400001-b5a3-f393-e0a9-e50e24dcca9e');
-        uartCharacteristic = await service.getCharacteristic('6e400003-b5a3-f393-e0a9-e50e24dcca9e');
+                const server = await bluetoothDevice.gatt.connect();
+                const service = await server.getPrimaryService(uartServiceUUID);
+                const rxChar = await service.getCharacteristic(uartRXCharUUID);
 
-        await uartCharacteristic.startNotifications();
-        uartCharacteristic.addEventListener('characteristicvaluechanged', handleUARTData);
+                await rxChar.startNotifications();
+                rxChar.addEventListener('characteristicvaluechanged', (event) => {
+                    const decoder = new TextDecoder('utf-8');
+                    const value = decoder.decode(event.target.value);
+                    document.getElementById('output').innerText = "온도: " + value;
+                });
 
-        document.getElementById('output').textContent = "연결됨. 센서값 수신 대기 중...";
-      } catch (error) {
-        console.error(error);
-        alert("연결 실패: " + error.message);
-      }
-    }
+                console.log("Connected to micro:bit!");
 
-    function handleUARTData(event) {
-      const value = new TextDecoder().decode(event.target.value);
-      document.getElementById('output').textContent = value.trim();
-    }
-  </script>
+            } catch (error) {
+                console.error("Bluetooth 연결 실패:", error);
+            }
+        }
+    </script>
 </body>
 </html>
