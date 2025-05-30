@@ -7,33 +7,23 @@
     <button id="connectBtn">마이크로비트 연결</button>
     <pre id="output">온도 데이터 대기 중...</pre>
 
-    <script>
-        const connectBtn = document.getElementById('connectBtn');
-        const output = document.getElementById('output');
-        let port;
-        let reader;
+<script>
+async function connect() {
+    const port = await navigator.serial.requestPort();
+    await port.open({ baudRate: 115200 });
 
-        connectBtn.addEventListener('click', async () => {
-            try {
-                port = await navigator.serial.requestPort();
-                await port.open({ baudRate: 115200 });
-                output.textContent = "연결됨. 데이터 수신 대기 중...\n";
+    const textDecoder = new TextDecoderStream();
+    port.readable.pipeTo(textDecoder.writable);
+    const reader = textDecoder.readable.getReader();
 
-                const textDecoder = new TextDecoderStream();
-                const readableStreamClosed = port.readable.pipeTo(textDecoder.writable);
-                reader = textDecoder.readable.getReader();
-
-                while (true) {
-                    const { value, done } = await reader.read();
-                    if (done) {
-                        break;
-                    }
-                    output.textContent += value;
-                }
-            } catch (error) {
-                output.textContent = "오류: " + error;
-            }
-        });
-    </script>
+    while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        console.log('Received:', value);
+        document.getElementById('output').textContent += value;
+    }
+}
+document.getElementById('connectBtn').addEventListener('click', connect);
+</script>
 </body>
 </html>
